@@ -197,6 +197,21 @@ function identity(size){
 }
 
 
+function randomNumberInRange (min, max) {
+    return min + (max-min)*Math.random();
+}
+
+function randomMatrix (nlines, ncols, min, max) {
+    if(!ncols) ncols = nlines;
+    if (!min) min = 0;
+    if(!max) max=1;
+
+    return generateMatrix(nlines, ncols, function(){
+        return randomNumberInRange(min, max);
+    });
+}
+
+
 function matrix2str (m) {
 	var w=m[0].length, h=m.length;
 	var str="";
