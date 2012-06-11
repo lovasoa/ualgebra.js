@@ -195,3 +195,18 @@ function ones(nlines,ncols){
 function identity(size){
 	return generateMatrix(size, size, function(i,j){ if(i===j) return 1; return 0; });
 }
+
+
+function matrix2str (m) {
+	var w=m[0].length, h=m.length;
+	var str="";
+	for (var i=0;i<h;i++){
+		str+="(";
+		for (var j=0;j<w;j++){
+			str += m[i][j];
+			if(j!==w-1) str+="\t";
+		}
+		str+= ")\n";
+	}
+	return str;
+}
