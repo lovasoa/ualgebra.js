@@ -172,6 +172,48 @@ function dotOp(func,m,n){
 }
 
 
+/*Returns the matrix obtained by applying the function func
+on each couple of factors m(i,k) and m(j,k).
+For instance, with i=1, j=2, and func=f
+(1 2)    ( f(1,3)[0] f(3,4)[0] )
+(3 4) -> ( f(1,3)[1] f(3,4)[1] )
+(5 6)    (    5         6      )
+*/
+function rowOperation (m, i, j, func) {
+    var h = m.length, w = m[0].length;
+    if ( ! ( 0<=i<h || 0<=j<h) ) {
+        throw "IncompatibleIndexes";
+    }
+    for (var k=0; k<w; k++){
+        var r = func(m[i][k], m[j][k]);
+        m[i][k] = r[0];
+        m[j][k] = r[1];
+    }
+    return m;
+}
+
+/*Swap rows i and j in the matrix m*/
+function swapRows(m, i, j) {
+    return rowOperation (m, i, j, function(factor1, factor2) {
+        return [factor2, factor1];
+    });
+}
+
+/*Substract lambda * the jth row to the ith row*/
+function substractAndMultiply(m, i, j, lambda) {
+    return rowOperation(m, i, j, function (factor1, factor2) {
+        return [factor1-lambda*factor2, factor2];
+    });
+}
+
+/*Multiply the ith row by a factor of lambda*/
+function rowMultiply (m, i, lambda) {
+    return rowOperation(m, i, 0, function (factor1, factor2) {
+        return [lambda*factor1, factor2];
+    });
+}
+
+
 function generateMatrix(nlines, ncols, func){
 	var m = [];
 	for(var i = 0; i < nlines; i++){
