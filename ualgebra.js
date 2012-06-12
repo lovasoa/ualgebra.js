@@ -1,5 +1,6 @@
 // The MIT License
 // Copyright (c) 2011 Pedro http://lamehacks.net
+// Copyright (c) 2012 Ophir LOJKINE
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
@@ -17,6 +18,151 @@
 // THE SOFTWARE.
 
 "use strict";
+
+var linalg = {
+
+	Matrix : function (elems) {
+		if (elems === undefined) {return linalg.Identity(3);}
+		else if (! elems instanceof Array) {throw "InvalidType";}
+		else if (typeof(elems[0]) !== "object") {return new linalg.Vector(elems);}
+
+		this.rows = elems.length;
+		this.columns = elems[0].length;
+		for (var i=0; i<this.rows; i++) {
+			if (elems[i].length != this.columns) throw "ImpossibleSize";
+		}
+		this.elems = elems;
+		
+		this.toVector = function() {
+			if (this.rows = 1) return linalg.Vector(this.elems[0]);
+			else if (this.columns = 1) return linalg.Vector(this.transpose()[0]);
+			else throw "NotAVector";
+		}
+		
+		/* /!\ Add another matrix in place. It alters the matrix */
+		this.addInPlace = function (m2) {
+			if (m2.rows!==this.rows || m2.columns!==this.columns) {
+				throw "SizesDoNotMatch";
+			}
+			for (var i = 0; i < this.rows; i++) {
+				for (var j = 0; j < this.columns; j++) {
+				    this.elems[i][j] += m2.elems[i][j]
+				}
+			}
+			return this;
+		};
+
+		this.add = function (m2) {
+			var m1 = this.clone();
+			return m1.addInPlace(m2);
+		};
+
+		this.multiply = function (m2) {
+			if ( ! m2 instanceof linalg.Matrix) throw "IncompatibleTypes";
+			if (m2.rows != this.columns) throw "SizesDoNotMatch";
+			var result = [];
+			for (var i=0; i<this.rows; i++) {
+				var row = new Array(m2.columns);
+				for (var j=0; j<m2.columns; j++) {
+					row[j] = 0;
+					for (var k=0; k<this.columns; k++) {
+						row[j] += this.elems[i][k]*m2.elems[k][j];
+					}
+				}
+				result.push(row);
+			}
+			return new linalg.Matrix(result);
+		};
+
+		/*Warning : In-place operations*/
+		this.scalarMultiplyInPlace = function (s) {
+			for (var k = this.rows*this.columns-1; k>=0; k--) {
+				this.elems[parseInt(k/this.columns)][k%this.columns] *= s;
+			}
+			return this;
+		}
+
+		this.scalarMultiply = function (m2) {
+			var m1 = this.clone();
+			return m1.scalarMultiplyInPlace(m2);
+		};
+
+		/* /!\ Transpose a square matrix in place. It alters the matrix */
+		this.transposeFast = function () {
+			if ( this.rows !== this.columns) throw "NonSquareMatrix";
+			for (var i=0; i<this.rows; i++) {
+				for (var j=i+1; j<this.columns; j++) {
+					var t = this.elems[i][j];
+					this.elems[i][j] = this.elems[j][i];
+					this.elems[j][i] = t;
+				}
+			}
+			return this;
+		};
+
+		this.transpose = function() {
+			var t = [];
+			for (var i = 0; i < this.columns; i++) {
+				var row = [];
+				for (var j = 0; j < this.rows; j++) {
+				    row.push(this.elems[j][i]);
+				}
+				t.push(row);
+			}
+			return (new linalg.Matrix(t));
+		};
+
+		
+		this.toString = function () {
+			var str="";
+			for (var i=0;i<this.rows;i++){
+				str+="(";
+				for (var j=0;j<this.columns;j++){
+					str += this.elems[i][j];
+					if(j!==this.columns-1) str+="\t";
+				}
+				str+= ")\n";
+			}
+			return str;
+		};
+
+		this.clone = function () {
+			var elems = this.elems;
+			var func = function(i, j) {return elems[i][j];};
+			return linalg.generateMatrix(this.rows, this.columns, func);
+		};
+
+	},
+	
+	
+	generateMatrix : function (nlines, ncols, elements) {
+		var func;
+		if (typeof(elements) === "number"){
+		    func = function(){return elements;};
+		}else{
+		    func = elements;
+		}
+		var elems = [];
+		for (var i = 0; i < nlines; i++) {
+		    var row = [];
+		    for (var j = 0; j < ncols; j++) {
+		        row.push(func(i, j));
+		    }
+		    elems.push(row);
+		}
+		return (new linalg.Matrix(elems));
+	},
+
+	Vector : function (elems, rowVector) {
+		if (elems === undefined) return new linalg.Vector([0]);
+		if (typeof(elems) !== "object") throw "InvalidType";
+		if ( elems instanceof linalg.Matrix) return elems.toVector();
+		var m = new linalg.Matrix(new Array(elems));
+		if (rowVector) return m;
+		else return m.transpose();
+	},
+
+};
 
 function matrixMultiply(a, b) {
     var btrans = transposeMatrix(b);
