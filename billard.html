@@ -1,0 +1,108 @@
+<html>
+<head>
+<title>Linear algebra test</title>
+<script src="ualgebra.js"></script>
+
+<style>
+canvas {
+	background-color:white;
+}
+body {
+	background-color:black;
+}
+</style>
+
+</head>
+
+<body>
+
+<canvas id="billardCanvas" width="1000" height="500"><h1>Installez Mozilla Firefox</h1></canvas>
+
+<script>
+
+var canvas = document.getElementById("billardCanvas");
+var ctx = canvas.getContext('2d');
+
+ctx.setTransform(2,0,0,-2,canvas.width/2, canvas.height/2);
+//drawStandardBasis();
+
+
+Billard = function (x, y, dx, dy, domain) {
+	this.domain = domain;
+	this.x = x;
+	this.y = y;
+	this.dx = dx;
+	this.dy = dy;
+	this.polygon = [];
+
+	this.draw  = function (resolution) {
+		blank(ctx);
+		this.polygon = new Array(resolution);
+		var a = this.domain[0], b = this.domain[1];
+		var step = (b - a)/resolution;
+		ctx.beginPath();
+		for (var i=0; i<resolution; i++){
+			var t = a+i*step;
+			var x = this.x(t);
+			var y = this.y(t);
+			ctx.lineTo(x, y);
+			this.polygon[i] = [x, y];
+		}
+		ctx.closePath();
+		ctx.stroke();
+	}
+};
+
+
+function blank(ctx) {
+		var w = ctx.canvas.width;
+		var h = ctx.canvas.height;
+		ctx.clearRect(-w/2, -h/2, w, h);
+}
+
+
+var Ellipse = new Billard (
+				function (t) { return 150*Math.cos(t); }, //x
+				function (t) { return 50*Math.sin(t); }, //y
+				function (t) { return -150*Math.sin(t); }, //dx
+				function (t) { return 50*Math.cos(t); }, //dy
+				[0, 2*Math.PI] //Domain
+				);
+Ellipse.draw(10);
+
+
+function Bench (res) {
+	var t = new Date();
+	drawBillard(Billard, res);
+	return ((new Date()) - t);
+}
+
+function cartesian2polar (x, y) {
+	var r = Math.sqrt(x*x + y*y);
+	var theta = ((x<0)?Math.PI:0) + Math.atan(y/x);
+	return [r, theta];
+}
+
+function polar2cartesian (r, theta) {
+	var x = r * Math.cos(theta);
+	var y = r * Math.sin(theta);
+	return [x, y];
+}
+
+function  drawStandardBasis () {
+	ctx.fillStyle = "rgba(200,80,80,0.8)";
+	ctx.beginPath();
+	ctx.moveTo(0,0);
+	ctx.lineTo(50, 0);
+	ctx.moveTo(0,0);
+	ctx.lineTo(0,50);
+	ctx.stroke();
+	ctx.fillText("Y (0,50)", 0,50);
+	ctx.fillText("X (50,0)", 50,0);
+}
+
+</script>
+
+</body>
+
+</html>

@@ -1,0 +1,25 @@
+<html>
+<head>
+<title>Linear algebra test</title>
+<script src="ualgebra.js"></script>
+</head>
+
+<body>
+
+<script>
+var I = linalg.Identity();
+console.log("I: ", I);
+
+var Sym = new linalg.Matrix([[-1, 0], [0, 1]]);
+console.log("Sym: ", Sym);
+
+var Vect = new linalg.Vector([1,1]);
+console.log("Vect: ", Vect);
+
+var Vect2 = Sym.multiply(Vect);
+console.log("Sym * Vect = ", Vect2);
+</script>
+
+</body>
+
+</html>

@@ -61,6 +61,7 @@ var linalg = {
 			var m1 = this.clone();
 			return m1.addInPlace(m2);
 		};
+		this.plus = this.add;
 
 		this.multiply = function (m2) {
 			if ( ! m2 instanceof linalg.Matrix) throw "IncompatibleTypes";
@@ -78,6 +79,7 @@ var linalg = {
 			}
 			return new linalg.Matrix(result);
 		};
+		this.dot = this.multiply;
 
 		/*Warning : In-place operations*/
 		this.scalarMultiplyInPlace = function (s) {
