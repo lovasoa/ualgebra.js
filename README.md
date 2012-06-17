@@ -32,7 +32,7 @@ cofactorMatrix(M); //returns [[4,3],[2,1]]
 // element-by-element operations
 //first parameter must be a function that accepts two paremeters
 //this can be used for example to sum matrices:
-N = linalg.Matrix([[1,1],[1,1]]);
+N = new linalg.Matrix([[1,1],[1,1]]);
 dotOp(function(a,b){return a+b;},M,N); //returns [[2,3],[4,5]]
 
 
