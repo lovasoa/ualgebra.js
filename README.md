@@ -12,17 +12,19 @@ The functions accept matrices as two dimentional arrays. A matrix is represented
 examples
 
 ```javascript
-M = [[1,2],[3,4]];
+M = new linalg.Matrix([[1,2],[3,4]]);
 
 // transpose
-T = transposeMatrix(M); //returns [[1,3],[2,4]]
+T = M.transpose(); //returns the matrix [[1,3],[2,4]]
 
 // inverse
-inverseMatrix(M); // returns [[-2,-1],[-1.5,-0.5]]
+M.inverse(); // returns [[-2,-1],[-1.5,-0.5]]
 
+//Not implemented yet:
 // determinant
 determinant(M); //returns -2
 
+//Not implemented yet:
 // cofactors
 cofactorMatrix(M); //returns [[4,3],[2,1]]
 
@@ -30,25 +32,26 @@ cofactorMatrix(M); //returns [[4,3],[2,1]]
 // element-by-element operations
 //first parameter must be a function that accepts two paremeters
 //this can be used for example to sum matrices:
-N = [[1,1],[1,1]];
+N = linalg.Matrix([[1,1],[1,1]]);
 dotOp(function(a,b){return a+b;},M,N); //returns [[2,3],[4,5]]
 
 
 // basic aritmetic matrix operations
 
 // matrix product
-matrixMultiply(M,N) //returns [[3,3],[7,7]]
+M.multiply(N); //returns [[3,3],[7,7]]
 
 // scalar-matrix product
-matrixScalarMultiply(M,2) //returns [[2,4],[6,8]]
+M.scalarMultiply(2) //returns [[2,4],[6,8]]
 
 
 // Matrix generation utilities
 
-zeros(3,5); //returns [[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0]]
+linalg.NullMatrix(3,5); //returns [[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0]]
 
+//Not implemented yet:
 ones(3,3); //returns [[1,1,1],[1,1,1],[1,1,1]]
 
-identity(4); //returns [[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]]
+linalg.Identity(4); //returns [[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]]
 
 ```
