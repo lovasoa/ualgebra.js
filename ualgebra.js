@@ -21,17 +21,22 @@
 
 var linalg = {
 
-	Matrix : function (elems) {
+	Matrix : function (elems, nocheck) {
 		if (elems === undefined) {return linalg.Identity(3);}
 		else if (! elems instanceof Array) {throw "InvalidType";}
 		else if (typeof(elems[0]) !== "object") {return new linalg.Vector(elems);}
 
 		this.rows = elems.length;
 		this.columns = elems[0].length;
-		for (var i=0; i<this.rows; i++) {
-			if (elems[i].length != this.columns) throw "ImpossibleSize";
+		
+		if (!nocheck) {
+			for (var i=0; i<this.rows; i++) {
+				if (elems[i].length != this.columns) throw "ImpossibleSize";
+			}
 		}
-		this.elems = elems;
+
+		//slice(0) to copy the array
+		this.elems = elems.slice(0);
 		
 		this.toVector = function() {
 			if (this.rows = 1) return linalg.Vector(this.elems[0]);
@@ -88,8 +93,8 @@ var linalg = {
 		};
 
 		/* /!\ Transpose a square matrix in place. It alters the matrix */
-		this.transposeFast = function () {
-			if ( this.rows !== this.columns) throw "NonSquareMatrix";
+		this.transposeFastSquare = function () {
+			if ( this.rows !== this.columns) 	throw "NonSquareMatrix";
 			for (var i=0; i<this.rows; i++) {
 				for (var j=i+1; j<this.columns; j++) {
 					var t = this.elems[i][j];
@@ -112,7 +117,127 @@ var linalg = {
 			return (new linalg.Matrix(t));
 		};
 
+		/*Returns the matrix obtained by applying the function func
+		on each couple of elements (i,k) and (j,k).
+		For instance, with i=1, j=2, and func=f
+		(1 2)    ( f(1,3)[0] f(3,4)[0] )
+		(3 4) -> ( f(1,3)[1] f(3,4)[1] )
+		(5 6)    (    5         6      )
+		*/
+		this.rowOperationInPlace = function (i, j, func) {
+				if ( ! ( 0<=i<this.rows || 0<=j<this.rows) ) {
+				    throw "IncompatibleIndexes";
+				}
+				for (var k=0; k<this.columns; k++){
+				    var r = func(this.elems[i][k], this.elems[j][k]);
+				    if (r[0]!==undefined) this.elems[i][k] = r[0];
+				    if (r[1]!==undefined) this.elems[j][k] = r[1];
+				}
+		}
+				//All the sub-functions here operate on the matrix directly
+						/*Swap rows i and j in the matrix m*/
+				this.swapRows =  function(i, j) {
+						this.rowOperationInPlace (i, j, function(factor1, factor2) {
+								return [factor2, factor1];
+						});
+				}
+
+				/*Substract lambda * the jth row to the ith row*/
+				this.substractAndMultiply = function(i, j, lambda) {
+						this.rowOperationInPlace (i, j, function (factor1, factor2) {
+								return [factor1-lambda*factor2, undefined];
+						});
+				}
+
+				/*Multiply the ith row by a factor of lambda*/
+				this.rowMultiply = function (i, lambda) {
+						this.rowOperationInPlace (i, 0, function (factor1, factor2) {
+								return [lambda*factor1, undefined];
+						});
+				}
+
+
+		//Apply the Gauss-Jordan elimination on m.
+		this.GaussJordanEliminationInPlace = function (nothrow) {
+
+			var curRow, curColumn, h=this.rows, w=this.columns;
+			for (curColumn=0; curColumn<Math.min(w,h); curColumn++) {
+			    //Find the row on which we will start the elimination
+			    for (var i=curColumn; i<h; i++) {
+			        if (this.elems[i][curColumn]!==0) break;
+			    }
+			    if (i<h) curRow=i;
+			    else if (nothrow) continue;
+			    else throw "SingularMatrix";
+
+			    this.swapRows(curRow, curColumn);
+			    curRow = curColumn;
+			    
+					this.rowMultiply(curRow, 1/this.elems[curRow][curColumn]);
+
+			    for (var i=0; i<h; i++) {
+			    	if (i==curRow) continue;
+			        var lambda = this.elems[i][curColumn]/this.elems[curRow][curColumn];
+			        this.substractAndMultiply(i, curRow, lambda);
+			    }
+			}
+		};
 		
+		this.GaussJordanElimination = function () {
+			var m = this.clone();
+			m.GaussJordanEliminationInPlace();
+			return m;
+		}
+
+		this.inverse = function () {
+				var size = this.rows;
+				if (this.rows != this.columns) throw "SingularMatrix";
+				var largeMat = this.concat(linalg.Identity(size));
+				largeMat.GaussJordanEliminationInPlace();
+				return largeMat.submatrix(0,size, size-1, 2*size-1);
+		};
+
+		//Submatrix composed of all coeffs between (l1,c1) and (l2,c2)
+		this.submatrix = function (l1, c1, l2, c2) {
+			if ( c2==undefined || c2 >= this.columns ) c2 = this.columns-1;
+			if ( l2==undefined || l2 >= this.rows ) l2 = this.rows-1;
+
+			var newColumns = c2-c1+1;
+			var newRows = l2-l1+1;
+			var newElems = elems.slice(l1,l2+1);
+			if (c1!=0 || c2!=this.columns-1) {
+				for (var l=0; l < newRows; l++){
+					newElems[l] = newElems[l].slice(c1, c2+1);
+				}
+			}
+			return (new linalg.Matrix(newElems, true));
+		};
+		
+		//Concatenate the matrix Mat to the left of current matrix (or to the bottom if bottom is set)
+		this.concat = function (Mat, bottom) {
+			if ( (!bottom && Mat.rows!=this.rows) || (bottom && Mat.columns!=this.columns) ){
+				throw "SizesDoNotMatch"
+			}
+			var newElems;
+			if (bottom) {
+				newElems = this.elems.concat(Mat.elems);
+			} else {
+				newElems = new Array(this.rows);
+				for (var i=0; i<this.rows; i++) {
+					newElems[i] = this.elems[i].concat(Mat.elems[i]);
+				}
+			}
+			return (new linalg.Matrix(newElems, true));
+		}
+		
+		this.clone = function () {
+			var newElems = new Array(this.rows);
+			for (var i=0; i<this.rows; i++) {
+				newElems[i] = this.elems[i].slice(0);
+			}
+			return linalg.Matrix(newElems, true);
+		};
+
 		this.toString = function () {
 			var str="";
 			for (var i=0;i<this.rows;i++){
@@ -124,12 +249,6 @@ var linalg = {
 				str+= ")\n";
 			}
 			return str;
-		};
-
-		this.clone = function () {
-			var elems = this.elems;
-			var func = function(i, j) {return elems[i][j];};
-			return linalg.generateMatrix(this.rows, this.columns, func);
 		};
 
 	},
@@ -152,14 +271,40 @@ var linalg = {
 		}
 		return (new linalg.Matrix(elems));
 	},
-
+	
 	Vector : function (elems, rowVector) {
-		if (elems === undefined) return new linalg.Vector([0]);
+		if (elems === undefined) return new linalg.Vector([0,0,0]);
 		if (typeof(elems) !== "object") throw "InvalidType";
 		if ( elems instanceof linalg.Matrix) return elems.toVector();
 		var m = new linalg.Matrix(new Array(elems));
 		if (rowVector) return m;
 		else return m.transpose();
+	},
+	
+	
+	/*Solve A.x = B*/
+	linearSolve : function (A, B) {
+		if (B === undefined) B = Vector(A.rows);
+    var M = A.concat(B);
+		M.GaussJordanEliminationInPlace();
+		return M.submatrix(0,A.columns, A.rows, A.columns);
+    return Bcopy;
+	},
+
+	Identity : function (size) {
+		if ( ! size ) size = 3;
+		return linalg.generateMatrix (size, size, function (i, j) {
+			return ( (i==j) ? 1 : 0 )
+		});
+	},
+	
+	NullMatrix : function (nlines, ncols) {
+		if ( ! nlines || ! ncols ) nlines = ncols = 3;
+		return linalg.generateMatrix (nlines, ncols, 0);
+	},
+	
+	NullVector : function (size) {
+		return linalg.NullMatrix(size, 1);
 	},
 
 };
@@ -322,99 +467,7 @@ function dotOp(func, m, n) {
     return result;
 }
 
-/*Returns the matrix obtained by applying the function func
-on each couple of factors m(i,k) and m(j,k).
-For instance, with i=1, j=2, and func=f
-(1 2)    ( f(1,3)[0] f(3,4)[0] )
-(3 4) -> ( f(1,3)[1] f(3,4)[1] )
-(5 6)    (    5         6      )
-*/
-function rowOperation (m, i, j, func) {
-    var h = m.length, w = m[0].length;
-    if ( ! ( 0<=i<h || 0<=j<h) ) {
-        throw "IncompatibleIndexes";
-    }
-    for (var k=0; k<w; k++){
-        var r = func(m[i][k], m[j][k]);
-        m[i][k] = r[0];
-        m[j][k] = r[1];
-    }
-    return m;
-}
 
-/*Swap rows i and j in the matrix m*/
-function swapRows(m, i, j) {
-    return rowOperation (m, i, j, function(factor1, factor2) {
-        return [factor2, factor1];
-    });
-}
-
-/*Substract lambda * the jth row to the ith row*/
-function substractAndMultiply(m, i, j, lambda) {
-    return rowOperation(m, i, j, function (factor1, factor2) {
-        return [factor1-lambda*factor2, factor2];
-    });
-}
-
-/*Multiply the ith row by a factor of lambda*/
-function rowMultiply (m, i, lambda) {
-    return rowOperation(m, i, 0, function (factor1, factor2) {
-        return [lambda*factor1, factor2];
-    });
-}
-
-/*Use the Gauss-Jordan elimination on m.
-If the matrix n is provided, the same row operations will be applied to n.
-So if n is the identity matrix, it will become the inverse of m*/
-function gauss_jordan_elimination (m, n) {
-    var curRow, curColumn, h=m.length, w=m[0].length;
-    for (curColumn=0; curColumn<Math.min(w,h); curColumn++) {
-        //Find the row on which we will start the elimination
-        for (var i=curColumn; i<h; i++) {
-            if (m[i][curColumn]!==0) break;
-        }
-        if (i<h) curRow=i;
-        else continue;
-        swapRows(m, curRow, curColumn);
-        if (n) swapRows(n, curRow, curColumn);
-        curRow = curColumn;
-
-    	var lambda =  1/m[curRow][curColumn];
-		rowMultiply(m, curRow, lambda);
-        if (n) rowMultiply(n, curRow, lambda);
-
-        for (var i=0; i<h; i++) {
-        	if (i==curRow) continue;
-            var lambda = m[i][curColumn]/m[curRow][curColumn];
-            substractAndMultiply(m, i, curRow, lambda); 
-            if (n) substractAndMultiply(n, i, curRow, lambda);
-        }
-    }
-    return m;
-}
-
-function fasterInverse (m) {
-    var size=0;
-    if (m.length != m[0].length) throw "SingularMatrix";
-    else size = m.length;
-    var mcopy = clone(m);
-    var inverse = identity(size);
-    gauss_jordan_elimination(mcopy, inverse);
-    return inverse;    
-}
-
-/*Solve A.x = B*/
-function linearSolve(A, B) {
-    var Acopy = clone(A);
-
-    var Bcopy;
-	if (typeof(B[0])==="number") Bcopy = vector(B);
-    else if (B) Bcopy = clone(B);
-    else Bcopy = zeros(A.length, 1);
-
-    gauss_jordan_elimination(Acopy, Bcopy);
-    return Bcopy;
-}
 
 function generateMatrix(nlines, ncols, elements) {
     var func;
