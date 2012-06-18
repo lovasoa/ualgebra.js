@@ -1,5 +1,6 @@
 <html>
 <head>
+<meta name="encoding" value="UTF8">
 <title>Linear algebra test</title>
 <script src="ualgebra.js"></script>
 
@@ -10,15 +11,95 @@ canvas {
 body {
 	background-color:black;
 }
+
+#interact {
+	background-color:#FADADA;
+}
 </style>
 
 </head>
 
 <body>
 
-<canvas id="billardCanvas" width="1000" height="500"><h1>Installez Mozilla Firefox</h1></canvas>
+<canvas id="billardCanvas" width="1000" height="700"><h1>Installez Mozilla Firefox</h1></canvas>
+
+<div id="interact">
+<fieldset name="Conditions initiales">
+	<label>x0:</label>
+	<input type="text" id="x0" value="0" size="3"/>
+
+	<label>y0:</label>
+	<input type="text" id="y0" value="0" size="3"/>
+
+	<label>vx :</label>
+	<input type="text" id="vx" value="2" size="3"/>
+
+	<label>vy :</label>
+	<input type="text" id="vy" value="2" size="3"/>
+</fieldset>
+<fieldset name="Courbe représentant la billard">
+	<label>t varie entre </label>
+	<input type="text" id="tmin" value="0" size="3" />
+	 et 
+	<input type="text" id="tmax" value="2*PI" size="3" />
+	<br />
+	<label>x (t) = </label>
+	<input type="text" id="eqnx" value="5/4*cos(t)" size="30"/>
+	<br />
+	<label>y (t) = </label>
+	<input type="text" id="eqny" value="sin(t)" size="30"/>
+</fieldset>
+<button onclick="initialize()">Démarer la simulation</button>
+</form>
 
 <script>
+
+var init = {
+	x : 0,
+	y : -1,
+	vx : 1,
+	vy : -2,
+};
+
+var courbe = {
+	x : function (t) { return 40*Math.sqrt(t/2)*Math.cos(t); }, //x
+	y : function (t) { return 40*Math.sqrt(t/2)*Math.sin(t); }, //y
+	domain : [0, 16*Math.PI] //Domain
+};
+
+function str2func (str, factor) {
+	str = str.replace("pi", "PI");
+	if (!factor) factor=1;
+	var str = "var f = function(t) {with(Math){return "+factor+"*("+str+");};}";
+	eval(str);
+	if (typeof(f) === "function" )
+		return f;
+	else {
+		throw "InvalidFunction";
+	}
+}
+
+
+var billard, boule;
+function initialize () {
+	init.x = parseFloat(document.getElementById("x0").value);
+	init.y = parseFloat(document.getElementById("y0").value);
+	init.vx = str2func(document.getElementById("vx").value)();
+	init.vy = str2func(document.getElementById("vy").value)();
+
+	var a = str2func(document.getElementById("tmin").value)();
+	var b = str2func(document.getElementById("tmax").value)();
+	courbe.domain = [a, b];
+	var coeff = canvas.height/4;
+	courbe.x = str2func(document.getElementById("eqnx").value, coeff);
+	courbe.y = str2func(document.getElementById("eqny").value, coeff);
+
+	billard = new Billard (courbe.x, courbe.y, courbe.domain);
+	boule = new Boule(init.x,init.y,init.vx,init.vy);
+
+	billard.draw();
+	animate();
+}
 
 var canvas = document.getElementById("billardCanvas");
 var ctx = canvas.getContext('2d');
@@ -27,33 +108,34 @@ ctx.setTransform(2,0,0,-2,canvas.width/2, canvas.height/2);
 //drawStandardBasis();
 
 
-Billard = function (x, y, dx, dy, domain) {
+Billard = function (x, y, domain) {
 	this.domain = domain;
 	this.x = x;
 	this.y = y;
-	this.dx = dx;
-	this.dy = dy;
 	this.points = [];
-	this.derivs = [];
-	this.res = 100;
+	this.res = 5000;
 
 	this.draw  = function (resolution) {
+		 //Res is the number of points in the polygon
 		if (resolution) this.res=resolution;
 		blank(ctx);
-		this.points = new Array(this.res);
-		this.derivs = new Array(this.res);
+		this.points = new Array(this.res+1);
+		this.derivs = new Array(this.res+1);
 		var a = this.domain[0], b = this.domain[1];
 		var step = (b - a)/this.res;
 		ctx.beginPath();
-		for (var i=0; i<this.res; i++){
+		//Move to the first point
+		ctx.moveTo(this.x(a), this.y(a));
+		this.points[0] = [this.x(a), this.y(a)];
+		//Draw a line between each point
+		for (var i=1; i<=this.res; i++){
 			var t = a+i*step;
 			var x = this.x(t);
 			var y = this.y(t);
 			ctx.lineTo(x, y);
 			this.points[i] = [x, y];
-			this.derivs[i] = [this.dx(t), this.dy(t)];
 		}
-		ctx.closePath();
+		//ctx.closePath();
 		ctx.stroke();
 	}
 };
@@ -101,16 +183,6 @@ function blank(ctx) {
 		ctx.clearRect(-w/2, -h/2, w, h);
 }
 
-
-var Ellipse = new Billard (
-				function (t) { return 150*Math.cos(t); }, //x
-				function (t) { return 50*Math.sin(t); }, //y
-				function (t) { return -150*Math.sin(t); }, //dx
-				function (t) { return 50*Math.cos(t); }, //dy
-				[0, 2*Math.PI] //Domain
-				);
-var billard = Ellipse;
-
 Boule = function (x,y,dx,dy) {
 	this.x = x;
 	this.y = y;
@@ -118,23 +190,26 @@ Boule = function (x,y,dx,dy) {
 	this.dy = dy;
 	this.radius = 1;
 	this.draw = function () {
-		ctx.beginPath();
-		ctx.arc(this.x, this.y, this.radius, 0, 2*Math.PI);
-		ctx.fill();
+		ctx.fillStyle = "rgba(200,10,10,0.6)";
+		ctx.fillRect(this.x-this.radius/2, this.y-this.radius/2, this.radius, this.radius);
 	}
 	this.update = function () {
 		var b1 = [this.x, this.y];
 		var b2 = [this.x+this.dx, this.y+this.dy];
-		ctx.fillRect(b1[0]-1, b1[1]-1, 2, 2);
-		ctx.fillRect(b2[0]-1, b2[1]-1, 2, 2);
 
+		var nextpoint = billard.points[0];
 		for (var i=0; i<billard.res; i++) {
-			var point = billard.points[i];
-			var point2 = billard.points[(i+1)%billard.res];
-			inter = segmentIntersection(b1, b2, point, point2);
-			if (inter) {
-				var deriv = billard.derivs[i];
-				var norm = Math.sqrt(deriv[0]*deriv[0] + deriv[1]*deriv[1]);
+			var point = nextpoint;
+			/*there are billard.res+1 elements in billard.points. So  
+			billard.points[i+1] always exists*/
+			var nextpoint = billard.points[i+1];
+
+			inter = segmentIntersection(b1, b2, point, nextpoint);
+
+			if (inter ) {
+				//console.log(inter);
+				var deriv = [nextpoint[0]-point[0], nextpoint[1]-point[1]];
+				var norm = Math.sqrt(deriv[0]*deriv[0]+deriv[1]*deriv[1]);
 				deriv = [deriv[0]/norm, deriv[1]/norm];
 				var scalarprod = this.dx*deriv[0] + this.dy*deriv[1];
 				var proj = [deriv[0]*scalarprod, deriv[1]*scalarprod];
@@ -145,12 +220,11 @@ Boule = function (x,y,dx,dy) {
 				break;
 			}
 		}
-		this.x += this.dx;
-		this.y += this.dy;
+			this.x += this.dx;
+			this.y += this.dy;
 		this.draw();
 	}
 };
-var boule = new Boule(0,0,3,2);
 
 
 window.requestAnimFrame = (function(){
@@ -168,8 +242,6 @@ function animate() {
 	boule.update();
 	window.requestAnimFrame(animate);
 }
-billard.draw();
-animate();
 
 function Bench (res) {
 	var t = new Date();
