@@ -29,13 +29,13 @@ body {
 	<input type="text" id="x0" value="0" size="3"/>
 
 	<label>y0:</label>
-	<input type="text" id="y0" value="0" size="3"/>
+	<input type="text" id="y0" value="0.5" size="3"/>
 
 	<label>vx :</label>
-	<input type="text" id="vx" value="2" size="3"/>
+	<input type="text" id="vx" value="5" size="3"/>
 
 	<label>vy :</label>
-	<input type="text" id="vy" value="2" size="3"/>
+	<input type="text" id="vy" value="0" size="3"/>
 </fieldset>
 <fieldset name="Courbe représentant la billard">
 	<label>t varie entre </label>
@@ -44,11 +44,21 @@ body {
 	<input type="text" id="tmax" value="2*PI" size="3" />
 	<br />
 	<label>x (t) = </label>
-	<input type="text" id="eqnx" value="5/4*cos(t)" size="30"/>
+	<input type="text" id="eqnx" value="2*cos(t)" size="30"/>
 	<br />
 	<label>y (t) = </label>
 	<input type="text" id="eqny" value="sin(t)" size="30"/>
 </fieldset>
+<fieldset name="résolution">
+	<label name="résolution" >Résolution : </label>
+	<input type="text" id="resolution" value="2000" size="30"/>
+	<div style="font-size:0.9em;background-color:#FFFFAA">
+	Plus la résolution est grande, plus
+	les calculs (calculs d'angle de réflexion en particulier) seront précis.
+	Cependant, une trop grande résolution peut empêcher l'animation de
+	s'afficher fluidement sur votre ordinateur.</div>
+</fieldset>
+
 <button onclick="initialize()">Démarer la simulation</button>
 </form>
 
@@ -69,6 +79,7 @@ var courbe = {
 
 function str2func (str, factor) {
 	str = str.replace("pi", "PI");
+	str = str.replace("ln", "log");
 	if (!factor) factor=1;
 	var str = "var f = function(t) {with(Math){return "+factor+"*("+str+");};}";
 	eval(str);
@@ -82,22 +93,25 @@ function str2func (str, factor) {
 
 var billard, boule;
 function initialize () {
-	init.x = parseFloat(document.getElementById("x0").value);
-	init.y = parseFloat(document.getElementById("y0").value);
+	var coeff = canvas.height/8;
+
+	init.x = coeff*parseFloat(document.getElementById("x0").value);
+	init.y = coeff*parseFloat(document.getElementById("y0").value);
 	init.vx = str2func(document.getElementById("vx").value)();
 	init.vy = str2func(document.getElementById("vy").value)();
 
 	var a = str2func(document.getElementById("tmin").value)();
 	var b = str2func(document.getElementById("tmax").value)();
 	courbe.domain = [a, b];
-	var coeff = canvas.height/4;
+
 	courbe.x = str2func(document.getElementById("eqnx").value, coeff);
 	courbe.y = str2func(document.getElementById("eqny").value, coeff);
 
 	billard = new Billard (courbe.x, courbe.y, courbe.domain);
 	boule = new Boule(init.x,init.y,init.vx,init.vy);
 
-	billard.draw();
+	var res = document.getElementById("resolution").value;
+	billard.draw(res);
 	animate();
 }
 
@@ -113,6 +127,7 @@ Billard = function (x, y, domain) {
 	this.x = x;
 	this.y = y;
 	this.points = [];
+	this.derivs = [];
 	this.res = 5000;
 
 	this.draw  = function (resolution) {
@@ -126,19 +141,50 @@ Billard = function (x, y, domain) {
 		ctx.beginPath();
 		//Move to the first point
 		ctx.moveTo(this.x(a), this.y(a));
-		this.points[0] = [this.x(a), this.y(a)];
 		//Draw a line between each point
-		for (var i=1; i<=this.res; i++){
-			var t = a+i*step;
-			var x = this.x(t);
-			var y = this.y(t);
-			ctx.lineTo(x, y);
-			this.points[i] = [x, y];
+		var t = a;
+		var point = [this.x(a-step), this.y(a-step)];
+		var nextpoint = [this.x(a), this.y(a)];
+		for (var i=0; i<=this.res; i++){
+			var prevpoint = point;
+			var point = nextpoint;
+			var nextpoint = [this.x(t+step), this.y(t+step)];
+			this.points[i] = point;
+			this.derivs[i] = [nextpoint[0]-prevpoint[0], nextpoint[1]-prevpoint[1]];
+
+			var justafter = [this.x(t+step/4), this.y(t+step/4)];
+			var justbefore = [this.x(t+3/4*step), this.y(t+3/4*step)];
+			var inter = lineIntersection (point,justafter,nextpoint,justbefore);
+			//console.log(inter, point,justafter,nextpoint,justbefore);
+			if (inter) ctx.quadraticCurveTo(inter[0], inter[1], nextpoint[0], nextpoint[1]);
+			t += step;
 		}
 		//ctx.closePath();
 		ctx.stroke();
 	}
 };
+
+function lineIntersection (a1, a2, b1, b2) {
+	var x,y;
+	var slopea = (a2[1]-a1[1])/(a2[0]-a1[0]);
+	var slopeb = (b2[1]-b1[1])/(b2[0]-b1[0]);
+
+	if (Math.abs(slopea)===Math.abs(slopeb)) {
+		if (Math.abs((b1[1]-a1[1])/(b1[0]-a1[0])) !== Math.abs(slopea)) return null;
+		x = (min(axmax,bxmax)+max(axmin,bxmin))/2;
+		y = (min(axmax,bxmax)+max(axmin,bxmin))/2;
+	} else if (Math.abs(slopea) === Infinity) {
+		x = a1[0];
+		y = b1[1] + (x-b1[0]) * slopeb;
+	} else if (Math.abs(slopeb) === Infinity) {
+		x = b1[0];
+		y = a1[1] + (x-a1[0]) * slopea;
+	} else {
+		x = (b1[1] - a1[1] + a1[0]*slopea - b1[0]*slopeb)/(slopea-slopeb);
+		y = a1[1] + (x-a1[0]) * slopea;
+	}
+	return [x,y];
+}
 
 /*returns the coordinates of the point of intersection of the segments
 formed by the couple of points (a1,a2) and (b1,b2)*/
@@ -151,29 +197,25 @@ function segmentIntersection (a1, a2, b1, b2) {
 	if ( axmax < bxmin || bxmax < axmin || aymax < bymin || bymax < aymin) {
 		return null;
 	}
-	var x, y;
-
-	var slopea = (a2[1]-a1[1])/(a2[0]-a1[0]);
-	var slopeb = (b2[1]-b1[1])/(b2[0]-b1[0]);
-
-	if (Math.abs(slopea)===Math.abs(slopeb)) {
-		if (Math.abs((b1[1]-a1[1])/(b1[0]-a1[0])) !== Math.abs(slopea)) return null;
-		x = (min(axmax,bxmax)+max(axmin,bxmin))/2;
-		y = (min(axmax,bxmax)+max(axmin,bxmin))/2;
-	} else if (slopea === Infinity) {
-		x = a1[0];
-		y = b1[1] + (x-b1[0]) * slopeb;
-	} else if (slopeb === Infinity) {
-		x = b1[0];
-		y = a1[1] + (x-a1[0]) * slopea;
-	} else {
-		x = (b1[1] - a1[1] + a1[0]*slopea - b1[0]*slopeb)/(slopea-slopeb);
-		y = a1[1] + (x-a1[0]) * slopea;
-	}
-	if ( x > min(axmax,bxmax) || x < max(axmin,bxmin) || y > min(aymax,bymax) || y < max(aymin,bymin)) {
-		return null;
-	} else {
-		return [x, y];
+	var inter = lineIntersection(a1,a2,b1,b2);
+	if (inter===null) return null;
+	else{
+		var err=1e-99;
+		var x=inter[0], y=inter[1];
+		if ( x > min(axmax,bxmax) + err || x < max(axmin,bxmin) - err ) {
+			/*console.log("presque", axmax, axmin, bxmax, bxmin, Math.round(x), Math.round(y));
+			blank(ctx);
+			ctx.beginPath();
+			ctx.moveTo(a1[0], a1[1]);
+			ctx.lineTo(a2[0], a2[1]);
+			ctx.moveTo(b1[0], b1[1]);
+			ctx.lineTo(b2[0], b2[1]);
+			ctx.stroke();
+			ctx.fillRect(x-1,y-1,2,2);*/
+			return null;
+		} else {
+			return [x, y];
+		}
 	}
 }
 
@@ -208,11 +250,12 @@ Boule = function (x,y,dx,dy) {
 
 			if (inter ) {
 				//console.log(inter);
-				var deriv = [nextpoint[0]-point[0], nextpoint[1]-point[1]];
-				var norm = Math.sqrt(deriv[0]*deriv[0]+deriv[1]*deriv[1]);
-				deriv = [deriv[0]/norm, deriv[1]/norm];
+				var dvs = billard.derivs;
+				var tau = (inter[0]-point[0])/(nextpoint[0]-point[0]);
+				var deriv = [tau*dvs[i+1][0]+(1-tau)*dvs[i][0], tau*dvs[i+1][1]+(1-tau)*dvs[i][1]];
+				var squarenorm = deriv[0]*deriv[0]+deriv[1]*deriv[1];
 				var scalarprod = this.dx*deriv[0] + this.dy*deriv[1];
-				var proj = [deriv[0]*scalarprod, deriv[1]*scalarprod];
+				var proj = [deriv[0]*scalarprod/squarenorm, deriv[1]*scalarprod/squarenorm];
 				this.dx = 2*proj[0]-this.dx;
 				this.dy = 2*proj[1]-this.dy;
 				this.x = inter[0];
